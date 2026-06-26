@@ -1,0 +1,100 @@
+:root{
+  --late:#33CCFF;   /* 75/1300 遅番 🟦 */
+  --early:#FF99FF;  /* 75/0530 早番 🩷 */
+  --amane:#FFC000;  /* 75/1000 アシマネ 🟧 */
+  --off:#00FFCC;    /* / 公休 🟩 */
+  --bd:#FF0000;     /* BD 誕生日休 🟥 */
+  --warn:#ffd5d5;
+  --warn-line:#d40000;
+  --line:#cfd6dd;
+  --ink:#1d2733;
+  --bg:#f4f6f8;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",system-ui,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;color:var(--ink);background:var(--bg)}
+
+.topbar{display:flex;align-items:center;gap:16px;padding:10px 16px;background:#0f2940;color:#fff;flex-wrap:wrap}
+.topbar h1{font-size:18px;margin:0;font-weight:600}
+.topbar h1 .sub{font-size:12px;opacity:.7;font-weight:400;margin-left:6px}
+.month-pick label{font-size:12px;display:flex;align-items:center;gap:6px}
+.month-pick input{padding:4px 6px;border-radius:6px;border:none}
+.actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+
+button{font:inherit;padding:7px 12px;border-radius:7px;border:1px solid #2c5277;color:#fff;cursor:pointer;background:#2563a6}
+button.primary{background:#1d9bf0;border-color:#1d9bf0}
+button.ghost{background:transparent;border-color:#7aa0c4;color:#cfe0f0}
+button.small{padding:4px 9px;font-size:12px}
+button:hover{filter:brightness(1.08)}
+
+.layout{display:flex;align-items:flex-start;gap:14px;padding:14px}
+.sidebar{width:300px;flex:0 0 300px;display:flex;flex-direction:column;gap:14px}
+.main{flex:1;min-width:0}
+
+.panel{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px}
+.panel h2{font-size:14px;margin:0 0 8px}
+.hint{font-size:11px;color:#5a6b7b;margin:6px 0;line-height:1.5}
+
+.staff-form{display:flex;gap:6px;flex-wrap:wrap}
+.staff-form select,.staff-form input,#offStaffSelect{padding:6px;border:1px solid var(--line);border-radius:6px;font:inherit}
+.staff-form input{flex:1;min-width:120px}
+#offStaffSelect{width:100%;margin-bottom:8px}
+.seed-row{margin:6px 0}
+
+.staff-list{list-style:none;margin:8px 0 0;padding:0;max-height:320px;overflow:auto}
+.staff-list li{display:flex;align-items:center;gap:8px;padding:5px 4px;border-bottom:1px solid #eef1f4;font-size:13px}
+.staff-list .role{font-weight:700;font-size:11px;padding:1px 6px;border-radius:5px;background:#eef3f8;color:#2c5277;min-width:34px;text-align:center}
+.staff-list .role.PT{background:#f3eef8;color:#6a4d8a}
+.staff-list .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.staff-list .del{color:#b00;cursor:pointer;border:none;background:none;padding:2px 6px;font-size:14px}
+.staff-list .up,.staff-list .down{border:none;background:none;cursor:pointer;color:#789;padding:0 2px}
+
+.off-days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.off-days .od{font-size:11px;text-align:center;padding:5px 0;border:1px solid var(--line);border-radius:5px;cursor:pointer;background:#fff}
+.off-days .od.we{color:#c0392b}
+.off-days .od.on{background:var(--off);border-color:#0bd}
+.off-days .od.disabled{opacity:.35;cursor:default}
+
+.legend ul{list-style:none;margin:0;padding:0;font-size:12px}
+.legend li{display:flex;align-items:center;gap:8px;padding:3px 0}
+.chip{width:18px;height:14px;border-radius:3px;border:1px solid #0002;display:inline-block}
+.chip.late{background:var(--late)}.chip.early{background:var(--early)}
+.chip.amane{background:var(--amane)}.chip.off{background:var(--off)}
+.chip.bd{background:var(--bd)}
+
+.warn-banner{background:var(--warn);border:1px solid var(--warn-line);color:#7a0000;padding:8px 12px;border-radius:8px;margin-bottom:10px;font-size:13px}
+
+.grid-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px;background:#fff;max-height:62vh}
+.summary-title{font-size:14px;margin:16px 0 6px}
+table.grid{border-collapse:collapse;font-size:12px;white-space:nowrap}
+table.grid th,table.grid td{border:1px solid var(--line);padding:2px 4px;text-align:center;min-width:30px;height:24px}
+table.grid thead th{position:sticky;top:0;background:#eef3f8;z-index:3}
+table.grid .colRole,table.grid .colName{position:sticky;left:0;background:#fff;z-index:2;text-align:left}
+table.grid .colRole{left:0;min-width:46px;font-weight:700;color:#2c5277}
+table.grid .colName{left:46px;min-width:150px;border-right:2px solid #aab;z-index:2}
+table.grid thead .colRole,table.grid thead .colName{z-index:4;background:#eef3f8}
+table.grid td.wknd{background:#f6f8d9}
+table.grid th.wknd{background:#e7ecc0}
+table.grid th.sun,table.grid td.sun{color:#c0392b}
+table.grid td.cell{cursor:pointer}
+table.grid td.cell:hover{outline:2px solid #1d9bf0;outline-offset:-2px}
+
+td.s-late{background:var(--late)}
+td.s-early{background:var(--early)}
+td.s-amane{background:var(--amane)}
+td.s-off{background:var(--off)}
+td.s-bd{background:var(--bd);color:#fff;font-weight:700}
+td.s-other{background:#eceff2;color:#445}
+
+.rowlabel{position:sticky;left:0;background:#fff;text-align:left;font-weight:600;z-index:2;min-width:196px;border-right:2px solid #aab}
+td.bad{background:var(--warn);color:var(--warn-line);font-weight:700}
+td.ok{color:#888}
+
+.popover{position:absolute;z-index:50;background:#fff;border:1px solid #88a;border-radius:10px;box-shadow:0 8px 24px #0003;padding:10px;width:210px}
+.popover h3{margin:0 0 8px;font-size:12px;color:#456}
+.popover .opts{display:flex;flex-direction:column;gap:5px}
+.popover .opt{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;cursor:pointer;font-size:13px;background:#fff;color:#1d2733;text-align:left}
+.popover .opt:hover{background:#eef6ff}
+.popover .opt .sw{width:18px;height:14px;border-radius:3px;border:1px solid #0002}
+.popover .free{display:flex;gap:5px;margin-top:8px}
+.popover .free input{flex:1;padding:5px;border:1px solid var(--line);border-radius:6px;font:inherit}
+.popover .free button{padding:5px 8px}

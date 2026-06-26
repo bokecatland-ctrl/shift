@@ -1,0 +1,11 @@
+# 個人名を含む実データは絶対にコミットしない
+*.xlsx
+*.xls
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*~
+.vscode/
+.idea/
+node_modules/
