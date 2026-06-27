@@ -36,7 +36,7 @@
     const runSingle = (id, d) => backRun(id, d) + 1 + fwdRun(id, d);
     // d と d+1 に連続勤務(2コマセット)を入れた場合の連勤数
     const runPair = (id, d) => backRun(id, d) + 2 + fwdRun(id, d + 1);
-    const FORBID = C.STREAK_FORBID, PREF = C.STREAK_PREF;
+    const FORBID = C.STREAK_FORBID, PREF = C.STREAK_PREF, SOFT = C.STREAK_SOFT;
 
     // d に code を入れると、前日/翌日との間で「翌日の方が早い出勤」になるか
     const descentAt = (id, d, code) => {
@@ -103,11 +103,12 @@
       if (countCat(d, 'amane') >= C.REQ.amane) continue;     // 固定等で充足済み
       const ok = (s) => !busy(s.id, d) && !isOff(s.id, d) &&
         runSingle(s.id, d) < FORBID && !descentAt(s.id, d, '75/1000');
-      // JP4 優先。sticky: 前日と同じ JP4 を 5連勤まで継続して塊にする。
+      // JP4 優先。sticky: 前日と同じ JP4 を SOFT(=3)連勤までだけ継続して短い塊にする
+      // （長い 5連勤の塊を作らないため）。塊の間にもう一方の JP4 が入る。
       let pool = jp4.filter(ok).sort((a, b) =>
-        ((a.id === lastA && runSingle(a.id, d) <= PREF) ? 0 : 1) -
-        ((b.id === lastA && runSingle(b.id, d) <= PREF) ? 0 : 1) ||
-        (runSingle(a.id, d) > PREF ? 1 : 0) - (runSingle(b.id, d) > PREF ? 1 : 0) ||
+        ((a.id === lastA && runSingle(a.id, d) <= SOFT) ? 0 : 1) -
+        ((b.id === lastA && runSingle(b.id, d) <= SOFT) ? 0 : 1) ||
+        (runSingle(a.id, d) > SOFT ? 1 : 0) - (runSingle(b.id, d) > SOFT ? 1 : 0) ||
         jworked[a.id] - jworked[b.id]);
       let pick = pool[0];
       if (!pick) {   // フォールバック: 10時OK の社員
@@ -141,8 +142,8 @@
             const ra = requirePair ? setRunAt(a, d) : runSingle(a.id, d);
             const rb = requirePair ? setRunAt(b, d) : runSingle(b.id, d);
             return (descentAt(a.id, d, '75/1300') ? 1 : 0) - (descentAt(b.id, d, '75/1300') ? 1 : 0) ||
-              (ra > PREF ? 1 : 0) - (rb > PREF ? 1 : 0) ||
-              workCount(a.id) - workCount(b.id);
+              (ra > SOFT ? 1 : 0) - (rb > SOFT ? 1 : 0) ||   // なるべく短い連勤
+              workCount(a.id) - workCount(b.id) || ra - rb;
           });
           for (const s of cand) { if (need <= 0) break; startSet(s); }
         }
@@ -162,24 +163,44 @@
       for (let d = 1; d <= N; d++) dayOrder.push(d);
     }
 
-    // 勤務が目標(targetWork)に満たない人を埋める。逆行(翌日が早い出勤)は作らない。
-    //  pass A: 余りコマ(中番) … 人数過剰を作らない（E職向き）。
-    //  pass B: 泊まりセット(明けで逆行なし) … 連続空き2日に追加。人数は過剰になりうる
-    //          （JP4 はこちらで公休を埋める。E職で足りない遅番/早番の補強にもなる）。
+    // 勤務が目標(targetWork)に満たない人を埋める。
+    //  - 1コマずつ「連勤が最も短くなる空き日」を選んで置く（孤立配置を優先）ので、
+    //    長い連勤の塊（5連勤の連続）にならない。逆行(翌日が早い出勤)は作らない。
+    //  - まず中番(余りコマ, 人数過剰なし)。中番がうまく置けない人(JP4)は泊まりセット。
+    const okMid = (id, d) =>
+      freeDay(id, d) && !descentAt(id, d, surplusCode) && runSingle(id, d) < FORBID;
+    const okSet = (id, d) =>
+      d < N && freeDay(id, d) && freeDay(id, d + 1) && runPair(id, d) < FORBID &&
+      !descentAt(id, d, '75/1300') && !C.isEarlierNextDay('75/0530', get(id, d + 2));
+
     genStaff.slice().sort((a, b) => workCount(a.id) - workCount(b.id)).forEach(s => {
-      for (const d of dayOrder) {            // pass A: 中番
-        if (workCount(s.id) >= targetWork) break;
-        if (freeDay(s.id, d) && runSingle(s.id, d) <= PREF && !descentAt(s.id, d, surplusCode))
-          put(s.id, d, surplusCode);
-      }
-      for (let d = 1; d < N; d++) {          // pass B: 泊まりセット
-        if (workCount(s.id) >= targetWork) break;
-        if (freeDay(s.id, d) && freeDay(s.id, d + 1) &&
-            runPair(s.id, d) < FORBID &&
-            !descentAt(s.id, d, '75/1300') &&
-            !C.isEarlierNextDay('75/0530', get(s.id, d + 2))) {
-          put(s.id, d, '75/1300'); put(s.id, d + 1, '75/0530');
+      let guard = 0;
+      while (workCount(s.id) < targetWork && guard++ < 3 * N) {
+        // 連勤が最短になる中番の置き場所（同点は土曜優先＝dayOrder順）
+        let bestMid = null;
+        for (const d of dayOrder) {
+          if (!okMid(s.id, d)) continue;
+          const r = runSingle(s.id, d);
+          if (bestMid === null || r < bestMid.r) bestMid = { d, r };
+          if (bestMid.r === 1) break;
         }
+        // 連勤が最短になる泊まりセットの置き場所
+        let bestSet = null;
+        for (let d = 1; d < N; d++) {
+          if (!okSet(s.id, d)) continue;
+          const r = runPair(s.id, d);
+          if (bestSet === null || r < bestSet.r) bestSet = { d, r };
+          if (bestSet.r === 2) break;
+        }
+        // 中番が SOFT 以内で置けるならそれを最優先（孤立配置・人数過剰なし）。
+        // 無理なら、連勤の短い方（中番 or 泊まりセット）を選ぶ。
+        if (bestMid && bestMid.r <= SOFT) {
+          put(s.id, bestMid.d, surplusCode);
+        } else if (bestSet && (!bestMid || bestSet.r <= bestMid.r)) {
+          put(s.id, bestSet.d, '75/1300'); put(s.id, bestSet.d + 1, '75/0530');
+        } else if (bestMid) {
+          put(s.id, bestMid.d, surplusCode);
+        } else break;
       }
     });
 

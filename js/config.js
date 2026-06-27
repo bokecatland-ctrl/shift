@@ -24,8 +24,12 @@
   // 公休の目標（おおよそ）
   const OFF_TARGET = 9;
 
-  // 連勤ルール: なるべく STREAK_PREF まで。STREAK_ALERT 以上で警告。
-  // STREAK_FORBID（=7）は絶対に作らない（生成で回避・手入力は赤表示）。
+  // 連勤ルール:
+  //  STREAK_SOFT(=3) … 生成でできるだけこの連勤までに収める（理想）。
+  //  STREAK_PREF(=5) … 5連勤は可だがなるべく避ける。
+  //  STREAK_ALERT(=6)… これ以上で警告。
+  //  STREAK_FORBID(=7)… 絶対に作らない（手入力は赤表示）。
+  const STREAK_SOFT = 3;
   const STREAK_PREF = 5;
   const STREAK_ALERT = 6;
   const STREAK_FORBID = 7;
@@ -104,7 +108,7 @@
 
   g.CFG = {
     SHIFT, REQ, ROLES, GEN_ROLES, EMP_ROLES, MANAGER_ROLE, OFF_TARGET,
-    STREAK_PREF, STREAK_ALERT, STREAK_FORBID,
+    STREAK_SOFT, STREAK_PREF, STREAK_ALERT, STREAK_FORBID,
     DEFAULT_SETTINGS, SUMMARY_BUCKETS, WEEKDAYS,
     daysInMonth, weekdayIndex, weekdayLabel, isWeekend, isSaturday,
     categoryOf, classOf, isWorkCode, startMinutes, isEarlierNextDay
