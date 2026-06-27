@@ -90,12 +90,22 @@ td.s-off{background:var(--off)}
 td.s-bd{background:var(--bd);color:#fff;font-weight:700}
 td.s-other{background:#eceff2;color:#445}
 
+/* 手入力で固定したセル */
+td.cell.locked{box-shadow:inset 0 0 0 2px #0f2940;font-weight:700}
+td.cell.locked::after{content:"";position:absolute;top:1px;right:1px;width:0;height:0;
+  border-top:7px solid #0f2940;border-left:7px solid transparent}
+table.grid td.cell{position:relative}
+
 .rowlabel{position:sticky;left:0;background:#fff;text-align:left;font-weight:600;z-index:2;min-width:196px;border-right:2px solid #aab}
 td.bad{background:var(--warn);color:var(--warn-line);font-weight:700}
 td.ok{color:#888}
 
 .popover{position:absolute;z-index:50;background:#fff;border:1px solid #88a;border-radius:10px;box-shadow:0 8px 24px #0003;padding:10px;width:210px}
-.popover h3{margin:0 0 8px;font-size:12px;color:#456}
+.popover h3{margin:0 0 4px;font-size:12px;color:#456}
+.popover h3 .lk{color:#0f2940;font-size:11px}
+.popover .pop-hint{margin:0 0 8px;font-size:10px;color:#789;line-height:1.4}
+.popover .unlock{width:100%;margin-top:8px;padding:6px;font-size:12px;background:#fff;color:#0f2940;border:1px solid #0f2940;border-radius:7px;cursor:pointer}
+.popover .unlock:hover{background:#eef3f8}
 .popover .opts{display:flex;flex-direction:column;gap:5px}
 .popover .opt{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;cursor:pointer;font-size:13px;background:#fff;color:#1d2733;text-align:left}
 .popover .opt:hover{background:#eef6ff}

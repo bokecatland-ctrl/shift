@@ -152,14 +152,15 @@
     $('btnGenerate').addEventListener('click', () => {
       const m = Store.getMonth();
       const settings = readSettingsFromInputs();
-      const grid = Gen.generate(Store.getStaff(), Store.state.desiredOff, m.year, m.month, settings);
+      const locked = Store.lockedGrid();   // 手入力で固定したセルを基礎にする
+      const grid = Gen.generate(Store.getStaff(), Store.state.desiredOff, m.year, m.month, settings, locked);
       Store.setGrid(grid);
       Grid.renderAll();
       renderOffDays();
     });
 
     $('btnClear').addEventListener('click', () => {
-      if (!confirm('グリッド（シフト）を消去しますか？スタッフと希望休は残ります。')) return;
+      if (!confirm('グリッド（シフトと手入力固定）を消去しますか？スタッフと希望休は残ります。')) return;
       Store.clearGrid();
       Grid.renderAll();
     });

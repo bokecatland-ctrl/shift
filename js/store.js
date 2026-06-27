@@ -6,6 +6,7 @@
     staff: 'shift.staff.v1',
     off: 'shift.desiredOff.v1',
     grid: 'shift.grid.v1',
+    locks: 'shift.locks.v1',
     month: 'shift.month.v1',
     settings: 'shift.settings.v1'
   };
@@ -27,6 +28,7 @@
     staff: read(K.staff, []),          // [{id, role, name}]
     desiredOff: read(K.off, {}),       // { staffId: [day,...] }
     grid: read(K.grid, {}),            // { staffId: { day: code } }
+    locks: read(K.locks, {}),          // { staffId: { day: true } } 手入力で固定したセル
     settings: Object.assign({}, window.CFG.DEFAULT_SETTINGS, read(K.settings, {}))
   };
 
@@ -72,13 +74,40 @@
   function getCell(id, day) {
     const r = state.grid[id]; return r ? (r[day] || '') : '';
   }
-  function setCell(id, day, code) {
+  // manual=true のときは手入力として固定(ロック)。値を空にすると固定解除。
+  function setCell(id, day, code, manual) {
     const r = state.grid[id] || (state.grid[id] = {});
     if (code == null || code === '') delete r[day]; else r[day] = code;
     write(K.grid, state.grid);
+    if (manual) setLock(id, day, !(code == null || code === ''));
   }
   function setGrid(grid) { state.grid = grid || {}; write(K.grid, state.grid); }
-  function clearGrid() { state.grid = {}; write(K.grid, state.grid); }
+  function clearGrid() {
+    state.grid = {}; write(K.grid, state.grid);
+    state.locks = {}; write(K.locks, state.locks);
+  }
+
+  // ---- locks（手入力固定セル） ----
+  function isLocked(id, day) { const r = state.locks[id]; return !!(r && r[day]); }
+  function setLock(id, day, on) {
+    const r = state.locks[id] || (state.locks[id] = {});
+    if (on) r[day] = true; else delete r[day];
+    write(K.locks, state.locks);
+  }
+  function getLocks() { return state.locks; }
+  // 固定されているセルだけを { id: { day: code } } で返す
+  function lockedGrid() {
+    const out = {};
+    for (const id in state.locks) {
+      for (const day in state.locks[id]) {
+        if (!state.locks[id][day]) continue;
+        const code = getCell(id, +day);
+        if (code) (out[id] || (out[id] = {}))[day] = code;
+      }
+    }
+    return out;
+  }
+  function clearLocksOnly() { state.locks = {}; write(K.locks, state.locks); }
 
   // ---- month ----
   function getMonth() { return state.month; }
@@ -100,6 +129,7 @@
     getStaff, addStaff, removeStaff, moveStaff, setStaff,
     getOff, toggleOff, isOff,
     getGrid, getCell, setCell, setGrid, clearGrid,
+    isLocked, setLock, getLocks, lockedGrid, clearLocksOnly,
     getMonth, setMonth,
     getSettings, setSettings
   };

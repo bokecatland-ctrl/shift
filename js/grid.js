@@ -62,9 +62,10 @@
         const cls = C.classOf(code);
         const we = C.isWeekend(m.year, m.month, d) && !cls ? 'wknd' : '';
         if (C.categoryOf(code) === 'off') offCount++;
-        const wish = Store.isOff(s.id, d) ? ' title="希望休"' : '';
+        const locked = Store.isLocked(s.id, d);
+        const wish = Store.isOff(s.id, d) ? ' title="希望休"' : (locked ? ' title="手入力で固定"' : '');
         const wishMark = Store.isOff(s.id, d) && !code ? '·' : '';
-        tbody += `<td class="cell ${cls} ${we}" data-id="${s.id}" data-day="${d}"${wish}>${esc(code) || wishMark}</td>`;
+        tbody += `<td class="cell ${cls} ${we} ${locked ? 'locked' : ''}" data-id="${s.id}" data-day="${d}"${wish}>${esc(code) || wishMark}</td>`;
       }
       tbody += '<td class="colOff">' + offCount + '</td>';
       tbody += '</tr>';
@@ -153,16 +154,19 @@
       </button>`;
     }).join('');
 
+    const locked = Store.isLocked(id, day);
     pop.innerHTML =
-      `<h3>${day}日 のシフト</h3>
+      `<h3>${day}日 のシフト${locked ? ' <span class="lk">🔒固定中</span>' : ''}</h3>
+       <p class="pop-hint">選ぶと<b>手入力として固定</b>され、自動生成で上書きされません。</p>
        <div class="opts">
          ${opts}
-         <button class="opt" data-code=""><span class="sw" style="background:#fff;border:1px dashed #99a"></span><span>空欄にする</span></button>
+         <button class="opt" data-code=""><span class="sw" style="background:#fff;border:1px dashed #99a"></span><span>空欄にする（固定解除）</span></button>
        </div>
        <div class="free">
          <input type="text" id="freeCode" placeholder="自由入力 (例 75/0800)" value="${esc(cur)}">
-         <button id="freeSet">設定</button>
-       </div>`;
+         <button id="freeSet">固定</button>
+       </div>
+       ${locked ? '<button id="unlock" class="unlock">固定を解除（自動生成の対象に戻す）</button>' : ''}`;
 
     // 位置
     const r = td.getBoundingClientRect();
@@ -177,13 +181,18 @@
     pop.style.left = left + 'px';
     pop.style.top = Math.max(window.scrollY + 4, top) + 'px';
 
-    const apply = (code) => { Store.setCell(id, day, code); closeEditor(); renderAll(); onChange(); };
+    // manual=true で手入力固定（空欄なら固定解除）
+    const apply = (code) => { Store.setCell(id, day, code, true); closeEditor(); renderAll(); onChange(); };
     pop.querySelectorAll('.opt').forEach(b =>
       b.addEventListener('click', () => apply(b.dataset.code)));
     pop.querySelector('#freeSet').addEventListener('click', () =>
       apply(pop.querySelector('#freeCode').value.trim()));
     pop.querySelector('#freeCode').addEventListener('keydown', e => {
       if (e.key === 'Enter') apply(e.target.value.trim());
+    });
+    const unlockBtn = pop.querySelector('#unlock');
+    if (unlockBtn) unlockBtn.addEventListener('click', () => {
+      Store.setLock(id, day, false); closeEditor(); renderAll(); onChange();
     });
   }
 
