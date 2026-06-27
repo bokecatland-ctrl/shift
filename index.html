@@ -46,6 +46,21 @@
     </section>
 
     <section class="panel">
+      <h2>生成ルール（ベース設定）</h2>
+      <label class="set-row">今月の公休数
+        <input type="number" id="setOffTarget" min="0" max="31" step="1">
+      </label>
+      <label class="set-row check">
+        <input type="checkbox" id="setSatPriority">
+        余りコマを土曜優先で配置
+      </label>
+      <label class="set-row">余りコマのシフト
+        <input type="text" id="setSurplusCode" placeholder="75/1200">
+      </label>
+      <p class="hint">公休は月により変わるのでここで調整。需要(2コマ)で勤務が目標に届かない分は「余りコマ」を空き日（土曜優先）に追加します。設定は端末に保存されます。</p>
+    </section>
+
+    <section class="panel">
       <h2>希望休</h2>
       <p class="hint">スタッフを選び、休みたい日をクリック（緑＝希望休）。</p>
       <select id="offStaffSelect"></select>

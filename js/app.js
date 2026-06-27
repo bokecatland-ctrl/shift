@@ -69,6 +69,21 @@
     $('monthInput').value = m.year + '-' + pad(m.month);
   }
 
+  // ---- 設定 ----
+  function syncSettingsInputs() {
+    const s = Store.getSettings();
+    $('setOffTarget').value = s.offTarget;
+    $('setSatPriority').checked = !!s.surplusToSaturday;
+    $('setSurplusCode').value = s.surplusCode;
+  }
+  function readSettingsFromInputs() {
+    return Store.setSettings({
+      offTarget: parseInt($('setOffTarget').value, 10),
+      surplusToSaturday: $('setSatPriority').checked,
+      surplusCode: $('setSurplusCode').value.trim()
+    });
+  }
+
   // ---- 再描画 ----
   function refreshAll() {
     renderStaffList();
@@ -107,7 +122,11 @@
     Grid.setOnChange(() => { renderOffDays(); });
 
     syncMonthInput();
+    syncSettingsInputs();
     refreshAll();
+
+    ['setOffTarget', 'setSatPriority', 'setSurplusCode'].forEach(id =>
+      $(id).addEventListener('change', readSettingsFromInputs));
 
     $('staffForm').addEventListener('submit', e => {
       e.preventDefault();
@@ -132,7 +151,8 @@
 
     $('btnGenerate').addEventListener('click', () => {
       const m = Store.getMonth();
-      const grid = Gen.generate(Store.getStaff(), Store.state.desiredOff, m.year, m.month);
+      const settings = readSettingsFromInputs();
+      const grid = Gen.generate(Store.getStaff(), Store.state.desiredOff, m.year, m.month, settings);
       Store.setGrid(grid);
       Grid.renderAll();
       renderOffDays();

@@ -6,7 +6,8 @@
     staff: 'shift.staff.v1',
     off: 'shift.desiredOff.v1',
     grid: 'shift.grid.v1',
-    month: 'shift.month.v1'
+    month: 'shift.month.v1',
+    settings: 'shift.settings.v1'
   };
 
   function read(key, fallback) {
@@ -25,7 +26,8 @@
     month: read(K.month, { year: 2026, month: 6 }),
     staff: read(K.staff, []),          // [{id, role, name}]
     desiredOff: read(K.off, {}),       // { staffId: [day,...] }
-    grid: read(K.grid, {})             // { staffId: { day: code } }
+    grid: read(K.grid, {}),            // { staffId: { day: code } }
+    settings: Object.assign({}, window.CFG.DEFAULT_SETTINGS, read(K.settings, {}))
   };
 
   function uid() {
@@ -85,11 +87,20 @@
     write(K.month, state.month);
   }
 
+  // ---- settings（生成のベースルール） ----
+  function getSettings() { return state.settings; }
+  function setSettings(patch) {
+    state.settings = Object.assign({}, state.settings, patch);
+    write(K.settings, state.settings);
+    return state.settings;
+  }
+
   g.Store = {
     state,
     getStaff, addStaff, removeStaff, moveStaff, setStaff,
     getOff, toggleOff, isOff,
     getGrid, getCell, setCell, setGrid, clearGrid,
-    getMonth, setMonth
+    getMonth, setMonth,
+    getSettings, setSettings
   };
 })(window);

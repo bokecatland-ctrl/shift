@@ -34,8 +34,21 @@
 
   const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+  // 生成のベース設定（既定値）。localStorage で上書き・永続化される。
+  //  offTarget        : 1人あたりの目標公休数（月により変更可）
+  //  surplusToSaturday: 余りコマを土曜優先で配置するか
+  //  surplusCode      : 余りコマに入れるシフトコード（中番）
+  const DEFAULT_SETTINGS = {
+    offTarget: 10,
+    surplusToSaturday: true,
+    surplusCode: '75/1200'
+  };
+
   function daysInMonth(year, month /*1-12*/) {
     return new Date(year, month, 0).getDate();
+  }
+  function isSaturday(year, month, day) {
+    return weekdayIndex(year, month, day) === 6;
   }
   function weekdayIndex(year, month, day) {
     return new Date(year, month - 1, day).getDay(); // 0=Sun
@@ -62,7 +75,7 @@
 
   g.CFG = {
     SHIFT, REQ, ROLES, GEN_ROLES, EMP_ROLES, MANAGER_ROLE, OFF_TARGET,
-    SUMMARY_BUCKETS, WEEKDAYS,
-    daysInMonth, weekdayIndex, weekdayLabel, isWeekend, categoryOf, classOf
+    DEFAULT_SETTINGS, SUMMARY_BUCKETS, WEEKDAYS,
+    daysInMonth, weekdayIndex, weekdayLabel, isWeekend, isSaturday, categoryOf, classOf
   };
 })(window);

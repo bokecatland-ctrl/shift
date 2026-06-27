@@ -6,13 +6,18 @@
  *       毎日 2 人がセットを開始するので、どの日も 遅番×2・早番×2 になる。
  *   - 希望休を尊重し、勤務でない日は公休(/) で埋める（公休 ≈ 9 を目安に公平化）。
  *
+ *   - 公休は設定の目標値(offTarget)を目安にする。2コマ需要だけでは勤務が
+ *     目標に満たない人（＝コマが余る人）には、空き日に「余りコマ」(中番)を
+ *     追加して目標公休数に近づける。追加先は設定で土曜優先にできる。
+ *
  * 出力: grid = { staffId: { day: code } }
  */
 (function (g) {
   'use strict';
   const C = g.CFG;
 
-  function generate(staff, desiredOffMap, year, month) {
+  function generate(staff, desiredOffMap, year, month, settings) {
+    settings = Object.assign({}, C.DEFAULT_SETTINGS, settings || {});
     const N = C.daysInMonth(year, month);
     const grid = {};
     const off = (id) => desiredOffMap[id] || [];
@@ -80,9 +85,44 @@
       // started が 2 未満なら過少（後で集計が警告する）
     }
 
+    // ---- 余りコマの配置（公休を目標値に近づける） ----
+    // 各生成スタッフ(JP4/E2/E1)の現在の勤務日数を数え、目標勤務日数
+    // (N - offTarget) に満たない人の空き日に「余りコマ」を追加する。
+    const genStaff = staff.filter(s => C.GEN_ROLES.indexOf(s.role) >= 0);
+    const offTarget = clampInt(settings.offTarget, 0, N);
+    const targetWork = N - offTarget;
+    const surplusCode = (settings.surplusCode || C.DEFAULT_SETTINGS.surplusCode).trim() || '75/1200';
+
+    const workCount = (id) => {
+      const r = grid[id]; if (!r) return 0;
+      let n = 0;
+      for (let d = 1; d <= N; d++) if (r[d]) n++;  // 既に入っている=勤務（公休はまだ未配置）
+      return n;
+    };
+    const freeDay = (id, d) => !(grid[id] && grid[id][d]) && !isOff(id, d);
+
+    // 配置日の優先順: 設定で土曜優先なら 土曜→他の日、そうでなければ日付順
+    const dayOrder = [];
+    if (settings.surplusToSaturday) {
+      for (let d = 1; d <= N; d++) if (C.isSaturday(year, month, d)) dayOrder.push(d);
+      for (let d = 1; d <= N; d++) if (!C.isSaturday(year, month, d)) dayOrder.push(d);
+    } else {
+      for (let d = 1; d <= N; d++) dayOrder.push(d);
+    }
+
+    // 公休が多い人（勤務が少ない人）から埋めて公平化
+    genStaff.sort((a, b) => workCount(a.id) - workCount(b.id));
+    for (const s of genStaff) {
+      let need = targetWork - workCount(s.id);
+      if (need <= 0) continue;
+      for (const d of dayOrder) {
+        if (need <= 0) break;
+        if (freeDay(s.id, d)) { put(s.id, d, surplusCode); need--; }
+      }
+    }
+
     // ---- 残りを公休(/) で埋める（社員 + JP4） ----
-    const fillRoles = staff.filter(s => C.GEN_ROLES.indexOf(s.role) >= 0);
-    for (const s of fillRoles) {
+    for (const s of genStaff) {
       for (let d = 1; d <= N; d++) {
         const cur = grid[s.id] && grid[s.id][d];
         if (!cur) put(s.id, d, '/');
@@ -90,6 +130,11 @@
     }
 
     return grid;
+  }
+
+  function clampInt(v, lo, hi) {
+    v = parseInt(v, 10); if (isNaN(v)) v = lo;
+    return Math.max(lo, Math.min(hi, v));
   }
 
   g.Generator = { generate };
