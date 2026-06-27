@@ -10,14 +10,21 @@
   function renderStaffList() {
     const ul = $('staffList');
     const staff = Store.getStaff();
-    ul.innerHTML = staff.map(s =>
-      `<li data-id="${s.id}">
+    ul.innerHTML = staff.map(s => {
+      // 10時(アシマネ)バッジ: JP4 は常時可(固定表示)、E2/E1 は切替可、PT は非表示
+      let am = '';
+      if (s.role === 'JP4') am = '<span class="am fixed" title="アシマネ担当(常時)">🕙</span>';
+      else if (s.role === 'E2' || s.role === 'E1')
+        am = `<button class="am toggle ${s.amaneOk ? 'on' : ''}" title="10時(アシマネ)に入れてよい">🕙</button>`;
+      return `<li data-id="${s.id}">
         <button class="up" title="上へ">▲</button>
         <button class="down" title="下へ">▼</button>
         <span class="role ${s.role === 'PT' ? 'PT' : ''}">${esc(s.role)}</span>
         <span class="nm">${esc(s.name || '（無名）')}</span>
+        ${am}
         <button class="del" title="削除">✕</button>
-      </li>`).join('');
+      </li>`;
+    }).join('');
 
     ul.querySelectorAll('li').forEach(li => {
       const id = li.dataset.id;
@@ -26,6 +33,12 @@
       });
       li.querySelector('.up').addEventListener('click', () => { Store.moveStaff(id, -1); refreshAll(); });
       li.querySelector('.down').addEventListener('click', () => { Store.moveStaff(id, 1); refreshAll(); });
+      const amBtn = li.querySelector('.am.toggle');
+      if (amBtn) amBtn.addEventListener('click', () => {
+        const s = Store.getStaff().find(x => x.id === id);
+        Store.setAmaneOk(id, !(s && s.amaneOk));
+        renderStaffList();
+      });
     });
   }
 

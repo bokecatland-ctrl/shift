@@ -50,6 +50,14 @@
     delete state.grid[id];
     write(K.staff, state.staff); write(K.off, state.desiredOff); write(K.grid, state.grid);
   }
+  // 10時(アシマネ)に入れてよいか。JP4 は常に可、E2/E1 は個別フラグで許可。
+  function canAmane(s) { return s.role === window.CFG.MANAGER_ROLE || s.amaneOk === true; }
+  function setAmaneOk(id, on) {
+    const s = state.staff.find(x => x.id === id);
+    if (!s) return;
+    if (on) s.amaneOk = true; else delete s.amaneOk;
+    write(K.staff, state.staff);
+  }
   function moveStaff(id, dir) {
     const i = state.staff.findIndex(s => s.id === id);
     const j = i + dir;
@@ -126,7 +134,7 @@
 
   g.Store = {
     state,
-    getStaff, addStaff, removeStaff, moveStaff, setStaff,
+    getStaff, addStaff, removeStaff, moveStaff, setStaff, canAmane, setAmaneOk,
     getOff, toggleOff, isOff,
     getGrid, getCell, setCell, setGrid, clearGrid,
     isLocked, setLock, getLocks, lockedGrid, clearLocksOnly,

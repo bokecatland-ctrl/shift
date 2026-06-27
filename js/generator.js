@@ -91,75 +91,68 @@
       }
     }
 
-    // ---- 2. JP4: 10:00 ローテーション（その日に未充足のときだけ） ----
-    if (jp4.length) {
-      let ptr = 0;
-      const jworked = {}; jp4.forEach(s => jworked[s.id] = 0);
-      for (let d = 1; d <= N; d++) {
-        if (countCat(d, 'amane') >= C.REQ.amane) continue;   // 固定等で既に充足
-        const ordered = jp4
-          .filter(c => !busy(c.id, d) && !isOff(c.id, d) && runSingle(c.id, d) < FORBID)
-          .sort((a, b) =>
-            (descentAt(a.id, d, '75/1000') ? 1 : 0) - (descentAt(b.id, d, '75/1000') ? 1 : 0) ||
-            (runSingle(a.id, d) > PREF ? 1 : 0) - (runSingle(b.id, d) > PREF ? 1 : 0) ||
-            jworked[a.id] - jworked[b.id] ||
-            runSingle(a.id, d) - runSingle(b.id, d));
-        const pick = ordered[0];
-        if (pick) { put(pick.id, d, '75/1000'); jworked[pick.id]++; ptr++; }
+    const freeDay = (id, d) => !busy(id, d) && !isOff(id, d);
+    const jworked = {}; genStaff.forEach(s => jworked[s.id] = 0);
+
+    // ---- 2. アシマネ(10:00) 1/日。優先 JP4、難しければ amaneOk の社員(例: Kawakami/Duong) ----
+    //   JP4 は「かたまり(ブロック)」で回し、もう一方の JP4 に連続空き日を作る
+    //   （その空き日に泊まりセットを入れて公休を増やさず働けるようにするため）。
+    const amaneEmps = emps.filter(s => s.amaneOk === true);
+    let lastA = null;
+    for (let d = 1; d <= N; d++) {
+      if (countCat(d, 'amane') >= C.REQ.amane) continue;     // 固定等で充足済み
+      const ok = (s) => !busy(s.id, d) && !isOff(s.id, d) &&
+        runSingle(s.id, d) < FORBID && !descentAt(s.id, d, '75/1000');
+      // JP4 優先。sticky: 前日と同じ JP4 を 5連勤まで継続して塊にする。
+      let pool = jp4.filter(ok).sort((a, b) =>
+        ((a.id === lastA && runSingle(a.id, d) <= PREF) ? 0 : 1) -
+        ((b.id === lastA && runSingle(b.id, d) <= PREF) ? 0 : 1) ||
+        (runSingle(a.id, d) > PREF ? 1 : 0) - (runSingle(b.id, d) > PREF ? 1 : 0) ||
+        jworked[a.id] - jworked[b.id]);
+      let pick = pool[0];
+      if (!pick) {   // フォールバック: 10時OK の社員
+        pick = amaneEmps.filter(ok).sort((a, b) =>
+          (runSingle(a.id, d) > PREF ? 1 : 0) - (runSingle(b.id, d) > PREF ? 1 : 0) ||
+          workCount(a.id) - workCount(b.id))[0];
       }
+      if (pick) { put(pick.id, d, '75/1000'); jworked[pick.id]++; lastA = (pick.role === C.MANAGER_ROLE ? pick.id : null); }
+      else lastA = null;
     }
 
-    // ---- 3. 社員: 2コマセットで遅番/早番の不足を埋める ----
+    // ---- 3. 泊まりセット(遅番→翌早番) 2/日。優先 E職、足りなければ JP4 もOK ----
+    const setRunAt = (s, d) => (d >= N ? runSingle(s.id, d) : runPair(s.id, d));
     for (let d = 1; d <= N; d++) {
       let need = C.REQ.late - countCat(d, 'late');
       if (need <= 0) continue;
-
-      // 連勤数（このセットを入れた場合）。7連勤(FORBID)になる人は除外、
-      // 5連勤超(=6)になる人は後回しにする。
-      const setRun = (s) => (d >= N ? runSingle(s.id, d) : runPair(s.id, d));
-
-      // 相方(翌5:30)まで確保できる候補を優先
-      const pairable = emps.filter(s =>
-        !busy(s.id, d) && !isOff(s.id, d) &&
-        (d >= N || (!busy(s.id, d + 1) && !isOff(s.id, d + 1))) &&
-        setRun(s) < FORBID
-      ).sort((a, b) =>
-        (descentAt(a.id, d, '75/1300') ? 1 : 0) - (descentAt(b.id, d, '75/1300') ? 1 : 0) ||
-        (setRun(a) > PREF ? 1 : 0) - (setRun(b) > PREF ? 1 : 0) ||
-        workCount(a.id) - workCount(b.id) ||
-        setRun(a) - setRun(b));
-
-      for (const s of pairable) {
-        if (need <= 0) break;
-        put(s.id, d, '75/1300');
-        need--;
+      const startSet = (s) => {
+        put(s.id, d, '75/1300'); need--;
         if (d < N && countCat(d + 1, 'early') < C.REQ.early &&
-            !busy(s.id, d + 1) && !isOff(s.id, d + 1)) {
-          put(s.id, d + 1, '75/0530');  // 翌日 早番（相方）
-        }
-      }
-
-      // それでも遅番が不足するなら、相方を組めなくても遅番だけ入れる（過少回避）。
-      // ただし 7連勤は絶対に作らない。
-      if (need > 0) {
-        const solo = emps.filter(s =>
-          !busy(s.id, d) && !isOff(s.id, d) && runSingle(s.id, d) < FORBID)
-          .sort((a, b) =>
-            (descentAt(a.id, d, '75/1300') ? 1 : 0) - (descentAt(b.id, d, '75/1300') ? 1 : 0) ||
-            (runSingle(a.id, d) > PREF ? 1 : 0) - (runSingle(b.id, d) > PREF ? 1 : 0) ||
-            workCount(a.id) - workCount(b.id));
-        for (const s of solo) {
+            !busy(s.id, d + 1) && !isOff(s.id, d + 1)) put(s.id, d + 1, '75/0530');
+      };
+      // 相方つき → 相方なし、各段で E職プール→JP4プール の順で充足
+      for (const requirePair of [true, false]) {
+        for (const pool of [emps, jp4]) {
           if (need <= 0) break;
-          put(s.id, d, '75/1300'); need--;
+          const cand = pool.filter(s =>
+            !busy(s.id, d) && !isOff(s.id, d) &&
+            (!requirePair || d >= N || (!busy(s.id, d + 1) && !isOff(s.id, d + 1))) &&
+            (requirePair ? setRunAt(s, d) : runSingle(s.id, d)) < FORBID
+          ).sort((a, b) => {
+            const ra = requirePair ? setRunAt(a, d) : runSingle(a.id, d);
+            const rb = requirePair ? setRunAt(b, d) : runSingle(b.id, d);
+            return (descentAt(a.id, d, '75/1300') ? 1 : 0) - (descentAt(b.id, d, '75/1300') ? 1 : 0) ||
+              (ra > PREF ? 1 : 0) - (rb > PREF ? 1 : 0) ||
+              workCount(a.id) - workCount(b.id);
+          });
+          for (const s of cand) { if (need <= 0) break; startSet(s); }
         }
       }
     }
 
-    // ---- 4. 余りコマ（公休を目標値に近づける／土曜優先） ----
+    // ---- 4. 公休を目標に合わせる（公休は増やさない＝勤務を targetWork まで増やす） ----
     const offTarget = clampInt(settings.offTarget, 0, N);
     const targetWork = N - offTarget;
     const surplusCode = (settings.surplusCode || C.DEFAULT_SETTINGS.surplusCode).trim() || '75/1200';
-    const freeDay = (id, d) => !busy(id, d) && !isOff(id, d);
 
     const dayOrder = [];
     if (settings.surplusToSaturday) {
@@ -169,18 +162,23 @@
       for (let d = 1; d <= N; d++) dayOrder.push(d);
     }
 
-    // 余りコマは任意配置なので、連勤は PREF(5) まで、かつ「前日より早い出勤」
-    // （例: 12時番の翌日に10時番）にならない日にだけ置く。
-    // ※ そのため余りコマを置けず目標公休に届かない人（特に JP4）は公休が
-    //   多めになることがある（逆行を作らないことを優先）。
+    // 勤務が目標(targetWork)に満たない人を埋める。逆行(翌日が早い出勤)は作らない。
+    //  pass A: 余りコマ(中番) … 人数過剰を作らない（E職向き）。
+    //  pass B: 泊まりセット(明けで逆行なし) … 連続空き2日に追加。人数は過剰になりうる
+    //          （JP4 はこちらで公休を埋める。E職で足りない遅番/早番の補強にもなる）。
     genStaff.slice().sort((a, b) => workCount(a.id) - workCount(b.id)).forEach(s => {
-      let need = targetWork - workCount(s.id);
-      if (need <= 0) return;
-      for (const d of dayOrder) {
-        if (need <= 0) break;
-        if (freeDay(s.id, d) && runSingle(s.id, d) <= PREF &&
-            !descentAt(s.id, d, surplusCode)) {
-          put(s.id, d, surplusCode); need--;
+      for (const d of dayOrder) {            // pass A: 中番
+        if (workCount(s.id) >= targetWork) break;
+        if (freeDay(s.id, d) && runSingle(s.id, d) <= PREF && !descentAt(s.id, d, surplusCode))
+          put(s.id, d, surplusCode);
+      }
+      for (let d = 1; d < N; d++) {          // pass B: 泊まりセット
+        if (workCount(s.id) >= targetWork) break;
+        if (freeDay(s.id, d) && freeDay(s.id, d + 1) &&
+            runPair(s.id, d) < FORBID &&
+            !descentAt(s.id, d, '75/1300') &&
+            !C.isEarlierNextDay('75/0530', get(s.id, d + 2))) {
+          put(s.id, d, '75/1300'); put(s.id, d + 1, '75/0530');
         }
       }
     });

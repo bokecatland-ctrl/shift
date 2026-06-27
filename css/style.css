@@ -51,6 +51,10 @@ button:hover{filter:brightness(1.08)}
 .staff-list .role.PT{background:#f3eef8;color:#6a4d8a}
 .staff-list .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .staff-list .del{color:#b00;cursor:pointer;border:none;background:none;padding:2px 6px;font-size:14px}
+.staff-list .am{border:none;background:none;font-size:13px;padding:1px 3px;line-height:1;border-radius:5px}
+.staff-list .am.fixed{opacity:1;filter:none}
+.staff-list .am.toggle{cursor:pointer;filter:grayscale(1);opacity:.4;border:1px solid transparent}
+.staff-list .am.toggle.on{filter:none;opacity:1;background:#fff2cf;border-color:#e8b84b}
 .staff-list .up,.staff-list .down{border:none;background:none;cursor:pointer;color:#789;padding:0 2px}
 
 .off-days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
