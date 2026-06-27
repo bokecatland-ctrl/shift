@@ -38,6 +38,14 @@
     const runPair = (id, d) => backRun(id, d) + 2 + fwdRun(id, d + 1);
     const FORBID = C.STREAK_FORBID, PREF = C.STREAK_PREF;
 
+    // d に code を入れると、前日/翌日との間で「翌日の方が早い出勤」になるか
+    const descentAt = (id, d, code) => {
+      const prev = get(id, d - 1), next = get(id, d + 1);
+      if (C.isEarlierNextDay(prev, code)) return true;   // (d-1) → d
+      if (C.isEarlierNextDay(code, next)) return true;   // d → (d+1)
+      return false;
+    };
+
     const jp4 = staff.filter(s => s.role === C.MANAGER_ROLE);
     const emps = staff.filter(s => C.EMP_ROLES.indexOf(s.role) >= 0);
     const genStaff = staff.filter(s => C.GEN_ROLES.indexOf(s.role) >= 0);
@@ -92,6 +100,7 @@
         const ordered = jp4
           .filter(c => !busy(c.id, d) && !isOff(c.id, d) && runSingle(c.id, d) < FORBID)
           .sort((a, b) =>
+            (descentAt(a.id, d, '75/1000') ? 1 : 0) - (descentAt(b.id, d, '75/1000') ? 1 : 0) ||
             (runSingle(a.id, d) > PREF ? 1 : 0) - (runSingle(b.id, d) > PREF ? 1 : 0) ||
             jworked[a.id] - jworked[b.id] ||
             runSingle(a.id, d) - runSingle(b.id, d));
@@ -115,6 +124,7 @@
         (d >= N || (!busy(s.id, d + 1) && !isOff(s.id, d + 1))) &&
         setRun(s) < FORBID
       ).sort((a, b) =>
+        (descentAt(a.id, d, '75/1300') ? 1 : 0) - (descentAt(b.id, d, '75/1300') ? 1 : 0) ||
         (setRun(a) > PREF ? 1 : 0) - (setRun(b) > PREF ? 1 : 0) ||
         workCount(a.id) - workCount(b.id) ||
         setRun(a) - setRun(b));
@@ -135,6 +145,7 @@
         const solo = emps.filter(s =>
           !busy(s.id, d) && !isOff(s.id, d) && runSingle(s.id, d) < FORBID)
           .sort((a, b) =>
+            (descentAt(a.id, d, '75/1300') ? 1 : 0) - (descentAt(b.id, d, '75/1300') ? 1 : 0) ||
             (runSingle(a.id, d) > PREF ? 1 : 0) - (runSingle(b.id, d) > PREF ? 1 : 0) ||
             workCount(a.id) - workCount(b.id));
         for (const s of solo) {
@@ -158,13 +169,19 @@
       for (let d = 1; d <= N; d++) dayOrder.push(d);
     }
 
-    // 余りコマは任意配置なので、連勤が PREF(5) を超えない日にだけ置く。
+    // 余りコマは任意配置なので、連勤は PREF(5) まで、かつ「前日より早い出勤」
+    // （例: 12時番の翌日に10時番）にならない日にだけ置く。
+    // ※ そのため余りコマを置けず目標公休に届かない人（特に JP4）は公休が
+    //   多めになることがある（逆行を作らないことを優先）。
     genStaff.slice().sort((a, b) => workCount(a.id) - workCount(b.id)).forEach(s => {
       let need = targetWork - workCount(s.id);
       if (need <= 0) return;
       for (const d of dayOrder) {
         if (need <= 0) break;
-        if (freeDay(s.id, d) && runSingle(s.id, d) <= PREF) { put(s.id, d, surplusCode); need--; }
+        if (freeDay(s.id, d) && runSingle(s.id, d) <= PREF &&
+            !descentAt(s.id, d, surplusCode)) {
+          put(s.id, d, surplusCode); need--;
+        }
       }
     });
 

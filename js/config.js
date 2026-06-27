@@ -86,11 +86,27 @@
     return cat !== 'off' && cat !== 'bd';
   }
 
+  // コード "75/HHMM" から出勤開始時刻を分で返す（時刻が読めなければ null）
+  function startMinutes(code) {
+    const m = /^75\/(\d{2})(\d{2})$/.exec(code || '');
+    if (!m) return null;
+    return (+m[1]) * 60 + (+m[2]);
+  }
+  // 前日 prevCode → 翌日 nextCode で「翌日の方が出勤が早い」かを判定。
+  // ただし 2コマセットの明け（遅番 → 早番）は許容（false を返す）。
+  function isEarlierNextDay(prevCode, nextCode) {
+    const a = startMinutes(prevCode), b = startMinutes(nextCode);
+    if (a == null || b == null) return false;   // 時刻が読めない側は対象外
+    if (b >= a) return false;                    // 翌日が同じか遅い → OK
+    if (categoryOf(prevCode) === 'late' && categoryOf(nextCode) === 'early') return false; // 明け
+    return true;                                 // それ以外で翌日が早い → 避けたい
+  }
+
   g.CFG = {
     SHIFT, REQ, ROLES, GEN_ROLES, EMP_ROLES, MANAGER_ROLE, OFF_TARGET,
     STREAK_PREF, STREAK_ALERT, STREAK_FORBID,
     DEFAULT_SETTINGS, SUMMARY_BUCKETS, WEEKDAYS,
     daysInMonth, weekdayIndex, weekdayLabel, isWeekend, isSaturday,
-    categoryOf, classOf, isWorkCode
+    categoryOf, classOf, isWorkCode, startMinutes, isEarlierNextDay
   };
 })(window);

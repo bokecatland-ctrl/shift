@@ -103,6 +103,10 @@ table.grid td.cell{position:relative}
 td.cell.run6{border-bottom:3px solid #e8820c}
 td.cell.run7{border-bottom:3px solid #d40000;outline:2px solid #d40000;outline-offset:-2px}
 
+/* 翌日の方が早い出勤（明け除く）: 紫の左帯 */
+td.cell.descent{box-shadow:inset 4px 0 0 #8e44ad}
+td.cell.descent.locked{box-shadow:inset 4px 0 0 #8e44ad, inset 0 0 0 2px #0f2940}
+
 .rowlabel{position:sticky;left:0;background:#fff;text-align:left;font-weight:600;z-index:2;min-width:196px;border-right:2px solid #aab}
 td.bad{background:var(--warn);color:var(--warn-line);font-weight:700}
 td.ok{color:#888}

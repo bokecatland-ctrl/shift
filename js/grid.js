@@ -55,6 +55,26 @@
     return { runs, cellSev };
   }
 
+  // ---- 「翌日の方が早い出勤」の検出 ----
+  // 連続勤務日で翌日の出勤が前日より早い箇所（明けは除く）を列挙。
+  function computeDescents() {
+    const N = monthDays();
+    const hits = [];
+    const cell = {}; // "id|day" -> true（前日/翌日いずれかで違反）
+    Store.getStaff().forEach(s => {
+      for (let d = 1; d < N; d++) {
+        const a = Store.getCell(s.id, d);
+        const b = Store.getCell(s.id, d + 1);
+        if (C.isEarlierNextDay(a, b)) {
+          hits.push({ id: s.id, role: s.role, name: s.name, d: d, a: a, b: b });
+          cell[s.id + '|' + d] = true;
+          cell[s.id + '|' + (d + 1)] = true;
+        }
+      }
+    });
+    return { hits, cell };
+  }
+
   // ---- メイングリッド描画 ----
   function renderGrid() {
     const m = Store.getMonth();
@@ -78,6 +98,7 @@
 
     // body
     const cellSev = computeStreaks().cellSev;
+    const descCell = computeDescents().cell;
     let tbody = '<tbody>';
     staff.forEach(s => {
       tbody += '<tr data-id="' + s.id + '">';
@@ -92,10 +113,12 @@
         const locked = Store.isLocked(s.id, d);
         const sev = cellSev[s.id + '|' + d];
         const runCls = sev === 7 ? 'run7' : (sev === 6 ? 'run6' : '');
-        const wish = Store.isOff(s.id, d) ? ' title="希望休"'
-          : (sev ? ` title="${sev}連勤"` : (locked ? ' title="手入力で固定"' : ''));
+        const desc = descCell[s.id + '|' + d] ? 'descent' : '';
+        const title = Store.isOff(s.id, d) ? '希望休'
+          : (descCell[s.id + '|' + d] ? '前日より早い出勤' : (sev ? sev + '連勤' : (locked ? '手入力で固定' : '')));
+        const wish = title ? ` title="${title}"` : '';
         const wishMark = Store.isOff(s.id, d) && !code ? '·' : '';
-        tbody += `<td class="cell ${cls} ${we} ${locked ? 'locked' : ''} ${runCls}" data-id="${s.id}" data-day="${d}"${wish}>${esc(code) || wishMark}</td>`;
+        tbody += `<td class="cell ${cls} ${we} ${locked ? 'locked' : ''} ${runCls} ${desc}" data-id="${s.id}" data-day="${d}"${wish}>${esc(code) || wishMark}</td>`;
       }
       tbody += '<td class="colOff">' + offCount + '</td>';
       tbody += '</tr>';
@@ -174,6 +197,13 @@
     }
     if (alert6.length) {
       lines.push('<div class="wl-warn">⚠ 6連勤（注意・なるべく5まで）: ' + alert6.map(who).join(' / ') + '</div>');
+    }
+
+    // 前日より早い出勤
+    const desc = computeDescents().hits;
+    if (desc.length) {
+      const fmt = (h) => (h.role + ' ' + (h.name || '無名')) + '（' + h.d + '日 ' + h.a + ' → ' + (h.d + 1) + '日 ' + h.b + '）';
+      lines.push('<div class="wl-warn">⚠ 翌日の出勤が前日より早い（明けを除く）: ' + desc.map(fmt).join(' / ') + '</div>');
     }
 
     if (!lines.length) { el.hidden = true; el.classList.remove('has-err'); return; }
