@@ -28,6 +28,16 @@
     const get = (id, d) => (grid[id] && grid[id][d]) || '';
     const busy = (id, d) => !!get(id, d);                 // 何か入っている＝その日は確定済み
 
+    // ---- 連勤ヘルパー ----
+    const isWork = (id, d) => d >= 1 && d <= N && C.isWorkCode(get(id, d));
+    const backRun = (id, d) => { let n = 0, k = d - 1; while (k >= 1 && isWork(id, k)) { n++; k--; } return n; };
+    const fwdRun = (id, d) => { let n = 0, k = d + 1; while (k <= N && isWork(id, k)) { n++; k++; } return n; };
+    // d に1日勤務を入れた場合の連勤数
+    const runSingle = (id, d) => backRun(id, d) + 1 + fwdRun(id, d);
+    // d と d+1 に連続勤務(2コマセット)を入れた場合の連勤数
+    const runPair = (id, d) => backRun(id, d) + 2 + fwdRun(id, d + 1);
+    const FORBID = C.STREAK_FORBID, PREF = C.STREAK_PREF;
+
     const jp4 = staff.filter(s => s.role === C.MANAGER_ROLE);
     const emps = staff.filter(s => C.EMP_ROLES.indexOf(s.role) >= 0);
     const genStaff = staff.filter(s => C.GEN_ROLES.indexOf(s.role) >= 0);
@@ -65,7 +75,9 @@
         const dd = +d;
         if (C.categoryOf(lockedGrid[id][d]) !== 'late') continue;
         if (dd >= N) continue;
-        if (!busy(id, dd + 1) && !isOff(id, dd + 1) && countCat(dd + 1, 'early') < C.REQ.early) {
+        if (!busy(id, dd + 1) && !isOff(id, dd + 1) &&
+            countCat(dd + 1, 'early') < C.REQ.early &&
+            runSingle(id, dd + 1) < FORBID) {   // 7連勤になる相方は付けない
           put(id, dd + 1, '75/0530');
         }
       }
@@ -77,11 +89,13 @@
       const jworked = {}; jp4.forEach(s => jworked[s.id] = 0);
       for (let d = 1; d <= N; d++) {
         if (countCat(d, 'amane') >= C.REQ.amane) continue;   // 固定等で既に充足
-        const ordered = jp4.slice().sort((a, b) => jworked[a.id] - jworked[b.id]);
-        let pick = null;
-        for (const cand of ordered) {
-          if (!busy(cand.id, d) && !isOff(cand.id, d)) { pick = cand; break; }
-        }
+        const ordered = jp4
+          .filter(c => !busy(c.id, d) && !isOff(c.id, d) && runSingle(c.id, d) < FORBID)
+          .sort((a, b) =>
+            (runSingle(a.id, d) > PREF ? 1 : 0) - (runSingle(b.id, d) > PREF ? 1 : 0) ||
+            jworked[a.id] - jworked[b.id] ||
+            runSingle(a.id, d) - runSingle(b.id, d));
+        const pick = ordered[0];
         if (pick) { put(pick.id, d, '75/1000'); jworked[pick.id]++; ptr++; }
       }
     }
@@ -91,11 +105,19 @@
       let need = C.REQ.late - countCat(d, 'late');
       if (need <= 0) continue;
 
+      // 連勤数（このセットを入れた場合）。7連勤(FORBID)になる人は除外、
+      // 5連勤超(=6)になる人は後回しにする。
+      const setRun = (s) => (d >= N ? runSingle(s.id, d) : runPair(s.id, d));
+
       // 相方(翌5:30)まで確保できる候補を優先
       const pairable = emps.filter(s =>
         !busy(s.id, d) && !isOff(s.id, d) &&
-        (d >= N || (!busy(s.id, d + 1) && !isOff(s.id, d + 1)))
-      ).sort((a, b) => workCount(a.id) - workCount(b.id));
+        (d >= N || (!busy(s.id, d + 1) && !isOff(s.id, d + 1))) &&
+        setRun(s) < FORBID
+      ).sort((a, b) =>
+        (setRun(a) > PREF ? 1 : 0) - (setRun(b) > PREF ? 1 : 0) ||
+        workCount(a.id) - workCount(b.id) ||
+        setRun(a) - setRun(b));
 
       for (const s of pairable) {
         if (need <= 0) break;
@@ -107,10 +129,14 @@
         }
       }
 
-      // それでも遅番が不足するなら、相方を組めなくても遅番だけ入れる（過少回避）
+      // それでも遅番が不足するなら、相方を組めなくても遅番だけ入れる（過少回避）。
+      // ただし 7連勤は絶対に作らない。
       if (need > 0) {
-        const solo = emps.filter(s => !busy(s.id, d) && !isOff(s.id, d))
-          .sort((a, b) => workCount(a.id) - workCount(b.id));
+        const solo = emps.filter(s =>
+          !busy(s.id, d) && !isOff(s.id, d) && runSingle(s.id, d) < FORBID)
+          .sort((a, b) =>
+            (runSingle(a.id, d) > PREF ? 1 : 0) - (runSingle(b.id, d) > PREF ? 1 : 0) ||
+            workCount(a.id) - workCount(b.id));
         for (const s of solo) {
           if (need <= 0) break;
           put(s.id, d, '75/1300'); need--;
@@ -132,12 +158,13 @@
       for (let d = 1; d <= N; d++) dayOrder.push(d);
     }
 
+    // 余りコマは任意配置なので、連勤が PREF(5) を超えない日にだけ置く。
     genStaff.slice().sort((a, b) => workCount(a.id) - workCount(b.id)).forEach(s => {
       let need = targetWork - workCount(s.id);
       if (need <= 0) return;
       for (const d of dayOrder) {
         if (need <= 0) break;
-        if (freeDay(s.id, d)) { put(s.id, d, surplusCode); need--; }
+        if (freeDay(s.id, d) && runSingle(s.id, d) <= PREF) { put(s.id, d, surplusCode); need--; }
       }
     });
 

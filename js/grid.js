@@ -29,6 +29,32 @@
     return c.late !== C.REQ.late || c.early !== C.REQ.early || c.amane !== C.REQ.amane;
   }
 
+  // ---- 連勤の検出 ----
+  // 全スタッフについて、勤務が STREAK_ALERT(6) 日以上続く区間を列挙し、
+  // 各セルの連勤レベル(6 or 7+)も返す（セル着色用）。
+  function computeStreaks() {
+    const N = monthDays();
+    const runs = [];
+    const cellSev = {}; // "id|day" -> 6(注意) / 7(禁止)
+    Store.getStaff().forEach(s => {
+      let len = 0, start = 0;
+      for (let d = 1; d <= N + 1; d++) {
+        const work = d <= N && C.isWorkCode(Store.getCell(s.id, d));
+        if (work) { if (len === 0) start = d; len++; }
+        else {
+          if (len >= C.STREAK_ALERT) {
+            const end = d - 1;
+            const sev = len >= C.STREAK_FORBID ? 7 : 6;
+            runs.push({ id: s.id, role: s.role, name: s.name, start, end, len, sev });
+            for (let k = start; k <= end; k++) cellSev[s.id + '|' + k] = sev;
+          }
+          len = 0;
+        }
+      }
+    });
+    return { runs, cellSev };
+  }
+
   // ---- メイングリッド描画 ----
   function renderGrid() {
     const m = Store.getMonth();
@@ -51,6 +77,7 @@
     thead += '<th class="colOff">公休</th></tr></thead>';
 
     // body
+    const cellSev = computeStreaks().cellSev;
     let tbody = '<tbody>';
     staff.forEach(s => {
       tbody += '<tr data-id="' + s.id + '">';
@@ -63,9 +90,12 @@
         const we = C.isWeekend(m.year, m.month, d) && !cls ? 'wknd' : '';
         if (C.categoryOf(code) === 'off') offCount++;
         const locked = Store.isLocked(s.id, d);
-        const wish = Store.isOff(s.id, d) ? ' title="希望休"' : (locked ? ' title="手入力で固定"' : '');
+        const sev = cellSev[s.id + '|' + d];
+        const runCls = sev === 7 ? 'run7' : (sev === 6 ? 'run6' : '');
+        const wish = Store.isOff(s.id, d) ? ' title="希望休"'
+          : (sev ? ` title="${sev}連勤"` : (locked ? ' title="手入力で固定"' : ''));
         const wishMark = Store.isOff(s.id, d) && !code ? '·' : '';
-        tbody += `<td class="cell ${cls} ${we} ${locked ? 'locked' : ''}" data-id="${s.id}" data-day="${d}"${wish}>${esc(code) || wishMark}</td>`;
+        tbody += `<td class="cell ${cls} ${we} ${locked ? 'locked' : ''} ${runCls}" data-id="${s.id}" data-day="${d}"${wish}>${esc(code) || wishMark}</td>`;
       }
       tbody += '<td class="colOff">' + offCount + '</td>';
       tbody += '</tr>';
@@ -124,13 +154,32 @@
   // ---- 警告バナー ----
   function renderWarnings() {
     const N = monthDays();
+    const el = document.getElementById('warnBanner');
+    const lines = [];
+
     const bad = [];
     for (let d = 1; d <= N; d++) if (dayHasShortage(d)) bad.push(d);
-    const el = document.getElementById('warnBanner');
-    if (!bad.length) { el.hidden = true; return; }
+    if (bad.length) {
+      lines.push('<div>⚠ 人数過不足の日: ' + bad.join(', ') +
+        '（必要: 遅番' + C.REQ.late + '・早番' + C.REQ.early + '・アシマネ' + C.REQ.amane + '）</div>');
+    }
+
+    // 連勤アラート
+    const runs = computeStreaks().runs;
+    const who = (r) => (r.role + ' ' + (r.name || '無名')) + '（' + r.start + '〜' + r.end + '日=' + r.len + '連勤）';
+    const forbid = runs.filter(r => r.sev === 7);
+    const alert6 = runs.filter(r => r.sev === 6);
+    if (forbid.length) {
+      lines.push('<div class="wl-err">🚫 7連勤（絶対NG）: ' + forbid.map(who).join(' / ') + ' — 手直ししてください</div>');
+    }
+    if (alert6.length) {
+      lines.push('<div class="wl-warn">⚠ 6連勤（注意・なるべく5まで）: ' + alert6.map(who).join(' / ') + '</div>');
+    }
+
+    if (!lines.length) { el.hidden = true; el.classList.remove('has-err'); return; }
     el.hidden = false;
-    el.textContent = '⚠ 人数過不足の日: ' + bad.join(', ') +
-      '（必要: 遅番' + C.REQ.late + '・早番' + C.REQ.early + '・アシマネ' + C.REQ.amane + '）';
+    el.classList.toggle('has-err', forbid.length > 0);
+    el.innerHTML = lines.join('');
   }
 
   function renderAll() {

@@ -24,6 +24,12 @@
   // 公休の目標（おおよそ）
   const OFF_TARGET = 9;
 
+  // 連勤ルール: なるべく STREAK_PREF まで。STREAK_ALERT 以上で警告。
+  // STREAK_FORBID（=7）は絶対に作らない（生成で回避・手入力は赤表示）。
+  const STREAK_PREF = 5;
+  const STREAK_ALERT = 6;
+  const STREAK_FORBID = 7;
+
   // 下部集計に出すバケット（順序＝表示順）
   const SUMMARY_BUCKETS = [
     { key: 'late',  code: '75/1300', label: '遅番 75/1300', req: REQ.late },
@@ -73,9 +79,18 @@
     return 's-other';
   }
 
+  // 連勤判定での「勤務日」: 公休・誕生日休・空欄は休み（連勤リセット）
+  function isWorkCode(code) {
+    if (code == null || code === '') return false;
+    const cat = categoryOf(code);
+    return cat !== 'off' && cat !== 'bd';
+  }
+
   g.CFG = {
     SHIFT, REQ, ROLES, GEN_ROLES, EMP_ROLES, MANAGER_ROLE, OFF_TARGET,
+    STREAK_PREF, STREAK_ALERT, STREAK_FORBID,
     DEFAULT_SETTINGS, SUMMARY_BUCKETS, WEEKDAYS,
-    daysInMonth, weekdayIndex, weekdayLabel, isWeekend, isSaturday, categoryOf, classOf
+    daysInMonth, weekdayIndex, weekdayLabel, isWeekend, isSaturday,
+    categoryOf, classOf, isWorkCode
   };
 })(window);
