@@ -76,21 +76,8 @@
       return n;
     }
 
-    // ---- 1. 固定された遅番の相方（翌5:30）を補完（2コマセットの維持） ----
-    for (const id in lockedGrid) {
-      if (!genIds.has(id)) continue;
-      for (const d in lockedGrid[id]) {
-        const dd = +d;
-        if (C.categoryOf(lockedGrid[id][d]) !== 'late') continue;
-        if (dd >= N) continue;
-        if (!busy(id, dd + 1) && !isOff(id, dd + 1) &&
-            countCat(dd + 1, 'early') < C.REQ.early &&
-            runSingle(id, dd + 1) < FORBID) {   // 7連勤になる相方は付けない
-          put(id, dd + 1, '75/0530');
-        }
-      }
-    }
-
+    // ※ 固定した遅番(13時番)は「単品」扱い。翌5:30(明け)は自動付与しません。
+    //    泊まりにしたい場合は翌日の 5:30 も手動で固定してください。
     const freeDay = (id, d) => !busy(id, d) && !isOff(id, d);
     const jworked = {}; genStaff.forEach(s => jworked[s.id] = 0);
 

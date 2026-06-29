@@ -84,24 +84,18 @@
     $('monthInput').value = m.year + '-' + pad(m.month);
   }
 
-  // ---- 固定選択ブラシ ----
+  // ---- 固定選択（既存コマの一括固定/解除） ----
   function buildBrushBar() {
     const wrap = $('brushOpts');
-    const items = Object.keys(C.SHIFT).map(code => {
-      const def = C.SHIFT[code];
-      const bg = '#' + def.argb.slice(2);
-      const fg = def.textArgb ? '#' + def.textArgb.slice(2) : '#1d2733';
-      return `<button class="brush" data-code="${code}" title="${esc(def.label)}">
-        <span class="bsw" style="background:${bg};color:${fg}">${esc(code)}</span></button>`;
-    }).join('');
-    wrap.innerHTML = items +
-      '<button class="brush" data-code="" title="空欄にして固定解除"><span class="bsw clear">空欄/解除</span></button>';
-    const sel = (code) => {
-      Grid.setBrush(code);
-      wrap.querySelectorAll('.brush').forEach(b => b.classList.toggle('on', b.dataset.code === code));
+    wrap.innerHTML =
+      '<button class="brush" data-mode="lock"><span class="bsw lock">🔒 既存コマを固定</span></button>' +
+      '<button class="brush" data-mode="unlock"><span class="bsw unlock">固定を解除</span></button>';
+    const sel = (mode) => {
+      Grid.setLockBrush(mode);
+      wrap.querySelectorAll('.brush').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
     };
-    wrap.querySelectorAll('.brush').forEach(b => b.addEventListener('click', () => sel(b.dataset.code)));
-    sel(Grid.getBrush());   // 既定ブラシを選択表示
+    wrap.querySelectorAll('.brush').forEach(b => b.addEventListener('click', () => sel(b.dataset.mode)));
+    sel(Grid.getLockBrush());
   }
 
   // ---- 設定 ----

@@ -77,7 +77,8 @@ button.active{background:#ffb300;border-color:#ffb300;color:#23150a}
 .brush-bar .bb-opts{display:flex;gap:6px;flex-wrap:wrap}
 .brush{border:1px solid #d9c089;background:#fff;border-radius:7px;padding:3px;cursor:pointer}
 .brush .bsw{display:inline-block;padding:2px 6px;border-radius:4px;font-size:12px;font-weight:700;border:1px solid #0001}
-.brush .bsw.clear{background:#fff;border:1px dashed #99a;color:#445;font-weight:400}
+.brush .bsw.lock{background:#dbe9ff;color:#1a3e6e}
+.brush .bsw.unlock{background:#fff;border:1px dashed #99a;color:#445;font-weight:400}
 .brush.on{outline:2px solid #1d9bf0;outline-offset:1px}
 
 .grid-wrap.lockmode{box-shadow:inset 0 0 0 3px #ffb300}
@@ -113,6 +114,7 @@ td.s-amane{background:var(--amane)}
 td.s-off{background:var(--off)}
 td.s-bd{background:var(--bd);color:#fff;font-weight:700}
 td.s-other{background:#eceff2;color:#445}
+td.s-mid{background:#d2efe9;color:#175}
 
 /* 手入力で固定したセル */
 td.cell.locked{box-shadow:inset 0 0 0 2px #0f2940;font-weight:700}

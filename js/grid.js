@@ -5,9 +5,10 @@
 
   let onChange = function () {};
 
-  // 固定選択(ブラシ)モード
+  // 固定選択モード: 既に入っているコマを「一括固定」または「一括解除」する。
+  // 値は変更しない（1300等で塗りつぶさない）。
   let lockMode = false;
-  let brush = '/';        // 塗るシフト（'' = 空欄にして固定解除）
+  let lockBrush = 'lock';   // 'lock' = 既存コマを固定 / 'unlock' = 固定解除
   let painting = false;
 
   function setOnChange(fn) { onChange = fn || function () {}; }
@@ -18,15 +19,19 @@
     renderAll();
   }
   function getLockMode() { return lockMode; }
-  function setBrush(code) { brush = code; }
-  function getBrush() { return brush; }
+  function setLockBrush(mode) { lockBrush = mode; }
+  function getLockBrush() { return lockBrush; }
 
-  // ブラシで1セルを塗る（手入力固定）。DOM はその場で更新し、確定は mouseup で renderAll。
+  // 1セルの固定状態だけを切り替える（値は変えない）。固定は中身がある時のみ。
   function paintCell(td) {
     const id = td.dataset.id, day = +td.dataset.day;
-    Store.setCell(id, day, brush, true);   // brush='' なら空欄＋固定解除
     const code = Store.getCell(id, day);
-    td.textContent = code || '';
+    if (lockBrush === 'lock') {
+      if (!code) return;                 // 空欄は固定対象外
+      Store.setLock(id, day, true);
+    } else {
+      Store.setLock(id, day, false);
+    }
     td.className = liveCellClass(id, day, code);
   }
   function liveCellClass(id, day, code) {
@@ -268,14 +273,18 @@
   function openEditor(td, id, day) {
     const pop = document.getElementById('popover');
     const cur = Store.getCell(id, day);
-    const opts = Object.keys(C.SHIFT).map(code => {
+    const colored = Object.keys(C.SHIFT).map(code => {
       const def = C.SHIFT[code];
       const bg = '#' + def.argb.slice(2);
       const fg = def.textArgb ? '#' + def.textArgb.slice(2) : '#1d2733';
-      const sel = (cur === code) ? 'style="outline:2px solid #1d9bf0"' : '';
-      return `<button class="opt" data-code="${code}" ${sel}>
-        <span class="sw" style="background:${bg}"></span>
-        <span><b style="color:${fg};background:${bg};padding:0 4px;border-radius:3px">${esc(code)}</b> ${esc(def.label)}</span>
+      return { code, label: def.label, bg, fg };
+    });
+    const extra = (C.EXTRA_SHIFTS || []).map(e => ({ code: e.code, label: e.label, bg: '#e7edf2', fg: '#1d2733' }));
+    const opts = colored.concat(extra).map(o => {
+      const sel = (cur === o.code) ? 'style="outline:2px solid #1d9bf0"' : '';
+      return `<button class="opt" data-code="${o.code}" ${sel}>
+        <span class="sw" style="background:${o.bg}"></span>
+        <span><b style="color:${o.fg};background:${o.bg};padding:0 4px;border-radius:3px">${esc(o.code)}</b> ${esc(o.label)}</span>
       </button>`;
     }).join('');
 
@@ -345,6 +354,6 @@
 
   g.Grid = {
     renderAll, renderGrid, renderSummary, renderWarnings, setOnChange, dayCounts,
-    setLockMode, getLockMode, setBrush, getBrush
+    setLockMode, getLockMode, setLockBrush, getLockBrush
   };
 })(window);

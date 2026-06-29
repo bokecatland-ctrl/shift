@@ -5,12 +5,20 @@
   // セルに入る既知のシフトコード → 表示・色（Excel の実 ARGB に一致）・カテゴリ
   // category: late=遅番, early=早番, amane=アシマネ(JP4 10:00), off=公休, bd=誕生日休, other=その他
   const SHIFT = {
-    '75/1300': { cat: 'late',  argb: 'FF33CCFF', cls: 's-late',  label: '遅番 13:00→' },
-    '75/0530': { cat: 'early', argb: 'FFFF99FF', cls: 's-early', label: '早番 →5:30' },
+    '75/1300': { cat: 'late',  argb: 'FF33CCFF', cls: 's-late',  label: '遅番/13時番 13:00' },
+    '75/0530': { cat: 'early', argb: 'FFFF99FF', cls: 's-early', label: '早番(明け) 5:30' },
     '75/1000': { cat: 'amane', argb: 'FFFFC000', cls: 's-amane', label: 'アシマネ 10:00' },
     '/':       { cat: 'off',   argb: 'FF00FFCC', cls: 's-off',   label: '公休' },
     'BD':      { cat: 'bd',    argb: 'FFFF0000', cls: 's-bd',    label: '誕生日休', textArgb: 'FFFFFFFF' }
   };
+
+  // 選択肢に出す単品シフト（色付きSHIFTではない＝Excelは無地、必要数にも数えない）
+  // categoryOf は 'other' 扱い、classOf は EXTRA_CLS で淡色表示。
+  const EXTRA_SHIFTS = [
+    { code: '75/1200', label: '12時番(単品) 12:00' }
+    // 13時番(単品)は 75/1300 を選択（固定しても翌5:30は自動付与されません）
+  ];
+  const EXTRA_CLS = { '75/1200': 's-mid' };
 
   // 1日あたりの必要人数（社員）
   const REQ = { late: 2, early: 2, amane: 1 };
@@ -80,6 +88,7 @@
   function classOf(code) {
     if (code == null || code === '') return '';
     if (SHIFT[code]) return SHIFT[code].cls;
+    if (EXTRA_CLS[code]) return EXTRA_CLS[code];
     return 's-other';
   }
 
@@ -107,7 +116,7 @@
   }
 
   g.CFG = {
-    SHIFT, REQ, ROLES, GEN_ROLES, EMP_ROLES, MANAGER_ROLE, OFF_TARGET,
+    SHIFT, EXTRA_SHIFTS, REQ, ROLES, GEN_ROLES, EMP_ROLES, MANAGER_ROLE, OFF_TARGET,
     STREAK_SOFT, STREAK_PREF, STREAK_ALERT, STREAK_FORBID,
     DEFAULT_SETTINGS, SUMMARY_BUCKETS, WEEKDAYS,
     daysInMonth, weekdayIndex, weekdayLabel, isWeekend, isSaturday,
