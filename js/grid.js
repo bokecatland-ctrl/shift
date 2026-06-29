@@ -5,7 +5,38 @@
 
   let onChange = function () {};
 
+  // 固定選択(ブラシ)モード
+  let lockMode = false;
+  let brush = '/';        // 塗るシフト（'' = 空欄にして固定解除）
+  let painting = false;
+
   function setOnChange(fn) { onChange = fn || function () {}; }
+  function setLockMode(on) {
+    lockMode = !!on;
+    const wrap = document.querySelector('.grid-wrap');
+    if (wrap) wrap.classList.toggle('lockmode', lockMode);
+    renderAll();
+  }
+  function getLockMode() { return lockMode; }
+  function setBrush(code) { brush = code; }
+  function getBrush() { return brush; }
+
+  // ブラシで1セルを塗る（手入力固定）。DOM はその場で更新し、確定は mouseup で renderAll。
+  function paintCell(td) {
+    const id = td.dataset.id, day = +td.dataset.day;
+    Store.setCell(id, day, brush, true);   // brush='' なら空欄＋固定解除
+    const code = Store.getCell(id, day);
+    td.textContent = code || '';
+    td.className = liveCellClass(id, day, code);
+  }
+  function liveCellClass(id, day, code) {
+    const m = Store.getMonth();
+    const cls = C.classOf(code);
+    const hol = window.Holidays && window.Holidays.holidayName(m.year, m.month, day);
+    const we = (C.isWeekend(m.year, m.month, day) || hol) && !cls ? 'wknd' : '';
+    const locked = Store.isLocked(id, day) ? 'locked' : '';
+    return ['cell', cls, we, locked].filter(Boolean).join(' ');
+  }
 
   function monthDays() {
     const m = Store.getMonth();
@@ -90,15 +121,21 @@
       const wd = C.weekdayLabel(m.year, m.month, d);
       const we = C.isWeekend(m.year, m.month, d);
       const sun = C.weekdayIndex(m.year, m.month, d) === 0;
+      const hol = window.Holidays ? window.Holidays.holidayName(m.year, m.month, d) : null;
       const short = dayHasShortage(d);
-      const cls = ['day', we ? 'wknd' : '', sun ? 'sun' : '', short ? 'bad' : ''].join(' ');
-      thead += `<th class="${cls}" data-day="${d}"><div>${d}</div><div style="font-size:10px;opacity:.7">${wd}</div></th>`;
+      const cls = ['day', we ? 'wknd' : '', (sun || hol) ? 'sun' : '', hol ? 'holiday' : '', short ? 'bad' : ''].join(' ');
+      const tip = hol ? ` title="${esc(hol)}"` : '';
+      const mark = hol ? '<div class="holmark" title="' + esc(hol) + '">祝</div>' : '';
+      thead += `<th class="${cls}" data-day="${d}"${tip}><div>${d}</div><div style="font-size:10px;opacity:.7">${wd}</div>${mark}</th>`;
     }
     thead += '<th class="colOff">公休</th></tr></thead>';
 
     // body
     const cellSev = computeStreaks().cellSev;
     const descCell = computeDescents().cell;
+    const holDay = {};
+    for (let d = 1; d <= N; d++)
+      holDay[d] = window.Holidays ? !!window.Holidays.holidayName(m.year, m.month, d) : false;
     let tbody = '<tbody>';
     staff.forEach(s => {
       tbody += '<tr data-id="' + s.id + '">';
@@ -108,7 +145,7 @@
       for (let d = 1; d <= N; d++) {
         const code = Store.getCell(s.id, d);
         const cls = C.classOf(code);
-        const we = C.isWeekend(m.year, m.month, d) && !cls ? 'wknd' : '';
+        const we = (C.isWeekend(m.year, m.month, d) || holDay[d]) && !cls ? 'wknd' : '';
         if (C.categoryOf(code) === 'off') offCount++;
         const locked = Store.isLocked(s.id, d);
         const sev = cellSev[s.id + '|' + d];
@@ -127,10 +164,19 @@
 
     table.innerHTML = thead + tbody;
 
-    // セルクリック編集
-    table.querySelectorAll('td.cell').forEach(td => {
-      td.addEventListener('click', ev => openEditor(td, td.dataset.id, +td.dataset.day));
-    });
+    // セル操作: 固定選択モードはブラシ塗り（ドラッグ可）、通常はクリックでポップオーバー編集
+    table.onmousedown = (e) => {
+      const td = e.target.closest('td.cell'); if (!td) return;
+      if (lockMode) { e.preventDefault(); painting = true; paintCell(td); }
+    };
+    table.onmouseover = (e) => {
+      if (!lockMode || !painting) return;
+      const td = e.target.closest('td.cell'); if (td) paintCell(td);
+    };
+    table.onclick = (e) => {
+      if (lockMode) return;
+      const td = e.target.closest('td.cell'); if (td) openEditor(td, td.dataset.id, +td.dataset.day);
+    };
   }
 
   // ---- 下部集計描画 ----
@@ -287,10 +333,18 @@
     if (!pop.contains(e.target) && !e.target.classList.contains('cell')) closeEditor();
   });
 
+  // ドラッグ塗りの終了（どこで離しても確定して再集計）
+  document.addEventListener('mouseup', () => {
+    if (painting) { painting = false; renderAll(); onChange(); }
+  });
+
   function esc(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  g.Grid = { renderAll, renderGrid, renderSummary, renderWarnings, setOnChange, dayCounts };
+  g.Grid = {
+    renderAll, renderGrid, renderSummary, renderWarnings, setOnChange, dayCounts,
+    setLockMode, getLockMode, setBrush, getBrush
+  };
 })(window);

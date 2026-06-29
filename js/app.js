@@ -62,9 +62,11 @@
     const N = C.daysInMonth(m.year, m.month);
     let html = '';
     for (let d = 1; d <= N; d++) {
-      const we = C.isWeekend(m.year, m.month, d) ? 'we' : '';
+      const hol = window.Holidays ? window.Holidays.holidayName(m.year, m.month, d) : null;
+      const we = (C.isWeekend(m.year, m.month, d) || hol) ? 'we' : '';
       const on = Store.isOff(id, d) ? 'on' : '';
-      html += `<div class="od ${we} ${on}" data-day="${d}">${d}</div>`;
+      const tip = hol ? ` title="${esc(hol)}"` : '';
+      html += `<div class="od ${we} ${on}" data-day="${d}"${tip}>${d}${hol ? '<sup>祝</sup>' : ''}</div>`;
     }
     wrap.innerHTML = html;
     wrap.querySelectorAll('.od').forEach(od => {
@@ -80,6 +82,26 @@
   function syncMonthInput() {
     const m = Store.getMonth();
     $('monthInput').value = m.year + '-' + pad(m.month);
+  }
+
+  // ---- 固定選択ブラシ ----
+  function buildBrushBar() {
+    const wrap = $('brushOpts');
+    const items = Object.keys(C.SHIFT).map(code => {
+      const def = C.SHIFT[code];
+      const bg = '#' + def.argb.slice(2);
+      const fg = def.textArgb ? '#' + def.textArgb.slice(2) : '#1d2733';
+      return `<button class="brush" data-code="${code}" title="${esc(def.label)}">
+        <span class="bsw" style="background:${bg};color:${fg}">${esc(code)}</span></button>`;
+    }).join('');
+    wrap.innerHTML = items +
+      '<button class="brush" data-code="" title="空欄にして固定解除"><span class="bsw clear">空欄/解除</span></button>';
+    const sel = (code) => {
+      Grid.setBrush(code);
+      wrap.querySelectorAll('.brush').forEach(b => b.classList.toggle('on', b.dataset.code === code));
+    };
+    wrap.querySelectorAll('.brush').forEach(b => b.addEventListener('click', () => sel(b.dataset.code)));
+    sel(Grid.getBrush());   // 既定ブラシを選択表示
   }
 
   // ---- 設定 ----
@@ -181,6 +203,15 @@
     $('btnExport').addEventListener('click', async () => {
       try { await Xlsx.exportXlsx(); }
       catch (err) { alert('書出に失敗: ' + err.message); }
+    });
+
+    // 固定選択（ブラシ）モード
+    buildBrushBar();
+    $('btnLockSelect').addEventListener('click', () => {
+      const on = !Grid.getLockMode();
+      Grid.setLockMode(on);
+      $('btnLockSelect').classList.toggle('active', on);
+      $('brushBar').hidden = !on;
     });
 
     $('btnImport').addEventListener('click', () => $('fileInput').click());

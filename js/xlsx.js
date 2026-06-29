@@ -54,23 +54,28 @@
     // ヘッダ行（役職/氏名/日付/公休）
     ws.getCell(DAY_ROW, ROLE_COL).value = '役職';
     ws.getCell(DAY_ROW, NAME_COL).value = '氏名';
+    const holName = (d) => window.Holidays ? window.Holidays.holidayName(m.year, m.month, d) : null;
     for (let d = 1; d <= N; d++) {
       const c = ws.getCell(DAY_ROW, dayCol(d));
       c.value = d;
       c.alignment = { horizontal: 'center' };
       c.font = { bold: true };
-      if (C.isWeekend(m.year, m.month, d))
+      if (holName(d)) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD9E2' } };
+      else if (C.isWeekend(m.year, m.month, d))
         c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE7ECC0' } };
     }
     ws.getCell(DAY_ROW, offCol).value = '公休';
     ws.getCell(DAY_ROW, offCol).font = { bold: true };
 
-    // 曜日行
+    // 曜日行（日曜・祝日は赤、祝日名はセルのコメント/メモ代わりに値へ付記しないが赤表示）
     for (let d = 1; d <= N; d++) {
       const c = ws.getCell(WD_ROW, dayCol(d));
+      const hol = holName(d);
       c.value = C.weekdayLabel(m.year, m.month, d);
       c.alignment = { horizontal: 'center' };
-      c.font = { size: 9, color: { argb: C.weekdayIndex(m.year, m.month, d) === 0 ? 'FFC0392B' : 'FF666666' } };
+      const red = hol || C.weekdayIndex(m.year, m.month, d) === 0;
+      c.font = { size: 9, color: { argb: red ? 'FFC0392B' : 'FF666666' } };
+      if (hol) c.note = hol;
     }
 
     // スタッフ行（社員を先頭に並べて COUNTIF が社員ブロックを参照できるように）

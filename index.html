@@ -19,6 +19,7 @@
     <button id="btnImport">.xlsx 取込</button>
     <input type="file" id="fileInput" accept=".xlsx" hidden>
     <button id="btnExport">.xlsx 書出</button>
+    <button id="btnLockSelect">📌 固定選択</button>
     <button id="btnClear" class="ghost">グリッド消去</button>
   </div>
 </header>
@@ -83,6 +84,10 @@
 
   <!-- 右: グリッド -->
   <main class="main">
+    <div id="brushBar" class="brush-bar" hidden>
+      <span class="bb-label">📌 固定選択モード：ブラシを選び、セルをクリック／ドラッグで連続固定</span>
+      <span id="brushOpts" class="bb-opts"></span>
+    </div>
     <div id="warnBanner" class="warn-banner" hidden></div>
     <div class="grid-wrap">
       <table id="grid" class="grid"></table>
@@ -99,6 +104,7 @@
 
 <script src="vendor/exceljs.min.js"></script>
 <script src="js/config.js"></script>
+<script src="js/holidays.js"></script>
 <script src="js/store.js"></script>
 <script src="js/generator.js"></script>
 <script src="js/grid.js"></script>
